@@ -15,12 +15,13 @@ with st.sidebar:
 #首頁
 if selected == "首頁":
     st.subheader('首頁')
+    st.slider("這是一個範例滑桿", 0, 100, 50)
 
 
 #上傳CSV
 if selected == "上傳CSV":
     st.subheader('上傳CSV')
-    date = st.date_input("請選擇日期",datetime.now())
+    upload_date = st.date_input("請選擇日期",datetime.now(),key='upload_date')
     file = st.file_uploader("上傳CSV", ['.csv'])
     if file:
         df = pd.read_csv(file)
@@ -31,10 +32,10 @@ if selected == "上傳CSV":
             st.warning("CSV 檔案格式不正確，請確認欄位名稱")
             st.stop()
         if st.button("開始上傳",width=200):
-            date = str(date)
+            upload_date = str(upload_date)
             
             with st.spinner("正在處理中，請稍候..."):
-                upload.upload(df,date)
+                upload.upload(df,upload_date)
                 st.success("處理完成！")
 
 
@@ -44,12 +45,12 @@ if selected == "每日統計查詢":
     st.subheader('每日統計查詢')
     col1, col2 = st.columns(spec=[0.7, 0.3], vertical_alignment='bottom')
     with col1:
-        date = st.date_input("請選擇日期",datetime.now())
+        daily_date = st.date_input("請選擇日期",datetime.now(), key='daily_date')
     with col2:
         query = st.button("查詢")
 
     if query:
-        daily_results = select_sql.search_daily_results(date)
+        daily_results = select_sql.search_daily_results(daily_date)
         if daily_results is None:
             st.warning("查無資料，請確認日期是否正確或是否已上傳當日資料")
             st.stop()
@@ -74,7 +75,7 @@ if selected == "每日統計查詢":
             barmode='group',  # 群組顯示
             xaxis_title="員工",
             yaxis_title="數量",
-            title=f"{date} 統計結果",
+            title=f"{daily_results} 統計結果",
             height=500
         )
 
@@ -111,3 +112,4 @@ if selected == "每月統計圖表":
         if monthly_results is None:
             st.warning("查無資料，請確認日期是否正確或是否已上傳當月資料")
             st.stop()
+    
