@@ -12,17 +12,17 @@ def mainpage_container(df, employee):
     df = df[df['員工'] == employee]
     df = df.drop(columns=['員工'])
     # 轉換成長格式
-    df_melt = df.melt(id_vars=["報告日期"], var_name="類別", value_name="數量")
+    df_melt = df.melt(id_vars=["回報日期"], var_name="類別", value_name="數量")
     selection = alt.selection_point(fields=["類別"], bind="legend")
 
     #print(df)
     with st.container(border=1 ,height=300):
         st.write(employee + ' 統計圖表')
         chart = alt.Chart(df_melt).mark_line(point=True).encode(
-            x='monthdate(報告日期):O',  # Time data type for the x-axis
+            x='monthdate(回報日期):O',  # Time data type for the x-axis
             y=alt.Y("數量:Q", axis=alt.Axis(format="d", tickMinStep=1)), # Quantitative data type for the y-axis
             color='類別:N', # Nominal data type for coloring by category
-            tooltip=["報告日期:T", "類別:N", "數量:Q"],
+            tooltip=["回報日期:T", "類別:N", "數量:Q"],
             opacity=alt.condition(selection, alt.value(1), alt.value(0))  # 未選取時隱藏
             ).transform_filter(
             selection  # 只保留選到的類別
