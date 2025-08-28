@@ -50,19 +50,41 @@ with st.sidebar:
 if selected == "首頁":
     st.subheader('首頁')
     
-    tab1,tab2 = st.tabs(['依員工分類','依資料類別分類'])
 
-    with tab1:
-        df_30 = select_sql.search_last30days_result()
-        employee_list = select_sql.search_employee_list()
-        for i in range(0,len(employee_list),2):
-            set_2columns(df_30,i,i+1)
+    df_30 = select_sql.search_last30days_result()
+    employee_list = select_sql.search_employee_list()
 
-    with tab2:
-        st.write("這是依資料類別分類的內容")
+    st.write("這是依資料類別分類的內容")
+    data_category = st.selectbox("選擇資料類別", options=['新問題', '今日完成', '累積未完成', '重要未處理', '外部未處理'], index=0)
+    if data_category:
+        fig = go.Figure()
 
-        if st.button("查詢"):
-            st.dataframe(select_sql.search_last30days_result())
+        totals = []
+        for date in df_30['回報日期'].unique():
+            total = df_30[df_30['回報日期'] == date][data_category].sum()
+            totals.append(total)
+            
+        for employee in employee_list:
+            employee_df = df_30[df_30['員工'] == employee]
+            
+            fig.add_trace(go.Bar(x=employee_df['回報日期'], 
+                                y=employee_df[data_category], 
+                                name=employee))
+        fig.add_trace(go.Scatter(x=employee_df['回報日期'], 
+                                y=totals, 
+                                mode="text",
+                                text=totals,
+                                textposition="top center",
+                                showlegend=False))
+        fig.update_layout(barmode="stack")
+        fig.update_xaxes(type="category")
+        st.plotly_chart(fig, use_container_width=True)
+
+    
+
+    st.write("### 這是依員工分類的內容---------------------------------------------")
+    for i in range(0,len(employee_list),2):
+        set_2columns(df_30,i,i+1)
 
 
 #上傳CSV
