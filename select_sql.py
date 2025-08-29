@@ -74,7 +74,7 @@ def search_last30days_result():
         return
     df = pd.DataFrame(result)
     df.columns = ['回報日期', '員工', '新問題', '今日完成', '累積未完成', '重要未處理', '外部未處理']
-    print(f'df: {df}')
+    #print(f'df: {df}')
     return df
 
 

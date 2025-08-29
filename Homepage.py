@@ -7,6 +7,50 @@ import altair as alt
 import upload
 import select_sql
 
+def chart_as_datatype_container(df,cat,color):
+        
+            with st.container(border=1 ,height=500,):
+                title = f'<h3 style="color:{color}; padding: 0;">{cat} <span style="color:white">統計圖表</span></h3>'
+                st.markdown(title, unsafe_allow_html=True)
+                st.markdown('''<style>
+                            .stVerticalBlock{
+                            overflow: hidden;
+                            }</style>''', 
+                            unsafe_allow_html=True) # 調整CSS隱藏scroll bar
+                
+                fig = go.Figure()
+
+                totals = []
+                totals_text = []
+                for date in df['回報日期'].unique():
+                    total = df[df['回報日期'] == date][cat].sum()
+                    totals.append(total)
+                    #totals_text.append('合計:'+str(total))
+                    
+                
+                    
+                    
+                # 只顯示月日
+                x_labels = [pd.to_datetime(date).strftime('%m-%d') for date in df['回報日期'].unique()]
+
+                #print(x_labels)
+                fig.add_trace(go.Bar(
+                    x=x_labels, 
+                    y=totals, 
+                    name=cat,
+                    showlegend=False,
+                    marker_color=color
+                ))
+                fig.add_trace(go.Scatter(x=x_labels, 
+                                        y=(totals), 
+                                        mode="text",
+                                        text=totals,
+                                        textposition="top center",
+                                        showlegend=False,
+                                        ))
+                #fig.update_layout(barmode="stack")
+                fig.update_xaxes(type="category")
+                st.plotly_chart(fig, use_container_width=True)
 
 def mainpage_container(df, employee):
     df = df[df['員工'] == employee]
@@ -50,49 +94,35 @@ with st.sidebar:
 if selected == "首頁":
     st.subheader('首頁')
     
-
+    #依類別分類的內容---------------------------------------------
     df_30 = select_sql.search_last30days_result()
     employee_list = select_sql.search_employee_list()
+    category_df = pd.DataFrame(columns=['category','color'])
+    category_df['category'] = ['今日完成', '累積未完成', '新問題', '重要未處理', '外部未處理']
+    category_df['color'] = ['#83c9ff','#ffabab','#ff2b2b','#7defa1','#0066cc']
+    #print(category_df)
+    col1, col2 = st.columns([1,1])
+    try:
+        with col1:
+            chart_as_datatype_container(df_30,category_df['category'][0],category_df['color'][0])
+        with col2:
+            chart_as_datatype_container(df_30,category_df['category'][1],category_df['color'][1])
 
-    #依類別分類的內容---------------------------------------------
-    data_category = ['今日完成', '新問題', '累積未完成', '重要未處理', '外部未處理']
-    title_color = ['#83c9ff','#ffabab','#ff2b2b','#7defa1','#0066cc']
-    for cat, color in zip(data_category, title_color):
-        with st.container(border=1 ,height=500,):
-            title = f'<h3 style="color:{color}; padding: 0;">{cat} <span style="color:white">統計圖表</span></h3>'
-            st.markdown(title, unsafe_allow_html=True)
-            st.markdown('''<style>
-                        .stVerticalBlock{
-                        overflow: hidden;
-                        }</style>''', 
-                        unsafe_allow_html=True) # 調整CSS隱藏scroll bar
-            
-            fig = go.Figure()
-
-            totals = []
-            for date in df_30['回報日期'].unique():
-                total = df_30[df_30['回報日期'] == date][cat].sum()
-                totals.append(total)
-                
-            for employee in employee_list:
-                employee_df = df_30[df_30['員工'] == employee]
-                
-                fig.add_trace(go.Bar(x=employee_df['回報日期'], 
-                                    y=employee_df[cat], 
-                                    name=employee,
-                                    legendgroup=employee,
-                                    ))
-            fig.add_trace(go.Scatter(x=employee_df['回報日期'], 
-                                    y=([0] * len(totals)), 
-                                    mode="text",
-                                    text=totals,
-                                    textposition="top center",
-                                    showlegend=False,
-                                    textfont=dict(color="white", size=25)
-                                    ))
-            fig.update_layout(barmode="stack")
-            fig.update_xaxes(type="category")
-            st.plotly_chart(fig, use_container_width=True)
+    except IndexError:
+        pass
+    col1, col2, col3 = st.columns([1,1,1])
+    try:
+        with col1:
+            chart_as_datatype_container(df_30,category_df['category'][2],category_df['color'][2])
+        with col2:
+            chart_as_datatype_container(df_30,category_df['category'][3],category_df['color'][3])
+        with col3:
+            chart_as_datatype_container(df_30,category_df['category'][4],category_df['color'][4])
+    except IndexError:
+        pass
+    
+    
+    
 
     
 
