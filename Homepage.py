@@ -19,9 +19,9 @@ def mainpage_container(df, employee):
     with st.container(border=1 ,height=300):
         st.write(employee + ' 統計圖表')
         chart = alt.Chart(df_melt).mark_line(point=True).encode(
-            x='monthdate(回報日期):O',  # Time data type for the x-axis
-            y=alt.Y("數量:Q", axis=alt.Axis(format="d", tickMinStep=1)), # Quantitative data type for the y-axis
-            color='類別:N', # Nominal data type for coloring by category
+            x='monthdate(回報日期):O',  
+            y=alt.Y("數量:Q", axis=alt.Axis(format="d", tickMinStep=1)), 
+            color='類別:N', 
             tooltip=["回報日期:T", "類別:N", "數量:Q"],
             opacity=alt.condition(selection, alt.value(1), alt.value(0))  # 未選取時隱藏
             ).transform_filter(
@@ -42,7 +42,7 @@ def set_2columns(df,num1,num2):
         except IndexError:
             return
 
-st.set_page_config(page_title="QA Report", layout="wide")
+st.set_page_config(page_title="QA Report", layout="wide" )
 
 with st.sidebar:
     selected = option_menu("選單", ["首頁", "上傳CSV", "每日統計查詢", "每月統計圖表"])
@@ -54,35 +54,49 @@ if selected == "首頁":
     df_30 = select_sql.search_last30days_result()
     employee_list = select_sql.search_employee_list()
 
-    st.write("這是依資料類別分類的內容")
-    data_category = st.selectbox("選擇資料類別", options=['新問題', '今日完成', '累積未完成', '重要未處理', '外部未處理'], index=0)
-    if data_category:
-        fig = go.Figure()
+    #依類別分類的內容---------------------------------------------
+    data_category = ['今日完成', '新問題', '累積未完成', '重要未處理', '外部未處理']
+    title_color = ['#83c9ff','#ffabab','#ff2b2b','#7defa1','#0066cc']
+    for cat, color in zip(data_category, title_color):
+        with st.container(border=1 ,height=500,):
+            title = f'<h3 style="color:{color}; padding: 0;">{cat} <span style="color:white">統計圖表</span></h3>'
+            st.markdown(title, unsafe_allow_html=True)
+            st.markdown('''<style>
+                        .stVerticalBlock{
+                        overflow: hidden;
+                        }</style>''', 
+                        unsafe_allow_html=True) # 調整CSS隱藏scroll bar
+            
+            fig = go.Figure()
 
-        totals = []
-        for date in df_30['回報日期'].unique():
-            total = df_30[df_30['回報日期'] == date][data_category].sum()
-            totals.append(total)
-            
-        for employee in employee_list:
-            employee_df = df_30[df_30['員工'] == employee]
-            
-            fig.add_trace(go.Bar(x=employee_df['回報日期'], 
-                                y=employee_df[data_category], 
-                                name=employee))
-        fig.add_trace(go.Scatter(x=employee_df['回報日期'], 
-                                y=totals, 
-                                mode="text",
-                                text=totals,
-                                textposition="top center",
-                                showlegend=False))
-        fig.update_layout(barmode="stack")
-        fig.update_xaxes(type="category")
-        st.plotly_chart(fig, use_container_width=True)
+            totals = []
+            for date in df_30['回報日期'].unique():
+                total = df_30[df_30['回報日期'] == date][cat].sum()
+                totals.append(total)
+                
+            for employee in employee_list:
+                employee_df = df_30[df_30['員工'] == employee]
+                
+                fig.add_trace(go.Bar(x=employee_df['回報日期'], 
+                                    y=employee_df[cat], 
+                                    name=employee,
+                                    legendgroup=employee,
+                                    ))
+            fig.add_trace(go.Scatter(x=employee_df['回報日期'], 
+                                    y=([0] * len(totals)), 
+                                    mode="text",
+                                    text=totals,
+                                    textposition="top center",
+                                    showlegend=False,
+                                    textfont=dict(color="white", size=25)
+                                    ))
+            fig.update_layout(barmode="stack")
+            fig.update_xaxes(type="category")
+            st.plotly_chart(fig, use_container_width=True)
 
     
 
-    st.write("### 這是依員工分類的內容---------------------------------------------")
+    # 這是依員工分類的內容---------------------------------------------
     for i in range(0,len(employee_list),2):
         set_2columns(df_30,i,i+1)
 
@@ -94,10 +108,15 @@ if selected == "上傳CSV":
     file = st.file_uploader("上傳CSV", ['.csv'])
     if file:
         df = pd.read_csv(file)
-        if df.columns.tolist() != ['編號', '專案', '回報人', '分配給', '優先權', 
-                                       '嚴重性', '出現頻率', '產品版本', '類別', '回報日期', 
-                                       '作業系統', '作業系統版本', '平台類型', '檢視狀態', 
-                                       '已更新', '摘要', '狀態', '問題分析', '已修正版本']:
+
+        expected_cols = ['編號', '專案', '回報人', '分配給', '優先權', 
+                        '嚴重性', '出現頻率', '產品版本', '類別', '回報日期', 
+                        '作業系統', '作業系統版本', '平台類型', '檢視狀態', 
+                        '已更新', '摘要', '狀態', '問題分析', '已修正版本']
+        df.columns = df.columns.str.strip()   # 去掉前後空白
+        df = df.dropna(axis=0, how='all')     # 移除完全空白的列
+
+        if expected_cols in df.columns.tolist():
             st.warning("CSV 檔案格式不正確，請確認欄位名稱")
             st.stop()
         if st.button("開始上傳",width=200):
