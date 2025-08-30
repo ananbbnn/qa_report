@@ -77,6 +77,58 @@ def search_last30days_result():
     #print(f'df: {df}')
     return df
 
+def search_range_results(start_date,end_date):
+    sql = '''
+        SELECT `report_date`, `employee`,
+               `new_issues`, `combined_done`, `cumulative_unfinished`,
+               `important_unprocessed`, `external_unprocessed`,
+                `under_test`
+        FROM `qa_report`.`daily_results`
+        WHERE `report_date` BETWEEN '{start_date}' AND '{end_date}'
+    '''.format(start_date=start_date,end_date=end_date)
+    result = execute_sql(sql)
+    result = result.fetchall()
+    if result == []:
+        return
+    df = pd.DataFrame(result)
+    df.columns = ['回報日期', '員工', '新問題', '今日完成', '累積未完成', '重要未處理', '外部未處理','待測試']
+    #print(df)
+    return df
+
+def export_original_data():
+    sql = '''
+        SELECT  `id`,
+                `case_no`,
+                `project`,
+                `reporter`,
+                `receiver`,
+                `priority`,
+                `severity`,
+                `frequency`,
+                `version`,
+                `category`,
+                `report_date`,
+                `os`,
+                `os_version`,
+                `platform_category`,
+                `is_public`,
+                `update_date`,
+                `status`,
+                `analysis`,
+                `fixed_version`
+        FROM `qa_report`.`original_data`
+        ORDER BY `update_date` DESC
+    '''
+    result = execute_sql(sql)
+    result = result.fetchall()
+    if result == []:
+            return
+    df = pd.DataFrame(result)
+    df.columns = ['編號', '專案', '回報人', '分配給', '優先權', 
+                '嚴重性', '出現頻率', '產品版本', '類別', '回報日期', 
+                '作業系統', '作業系統版本', '平台類型', '檢視狀態', 
+                '已更新', '摘要', '狀態', '問題分析', '已修正版本']
+    return df
 
 
 #print(search_daily_results('2025-08-24'))
