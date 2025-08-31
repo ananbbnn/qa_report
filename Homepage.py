@@ -3,11 +3,24 @@ from streamlit_option_menu import option_menu
 import pandas as pd
 from datetime import datetime
 import plotly.graph_objects as go
+import plotly.express as px
 import altair as alt
+import logging
 import upload
 import select_sql
 
+# 建立Logger
+logger = logging.getLogger('my_logger')
+logger.setLevel(logging.DEBUG)
 
+# 建立Handler
+file_handler = logging.FileHandler(r'C:\Users\ananb\OneDrive\Desktop\新增資料夾\app.log')
+file_handler.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler) # 加到 logger 上
 
 
 def chart_as_datatype_container(df,cat,color):
@@ -59,21 +72,14 @@ def chart_as_employee_container(df, employee):
     selection = alt.selection_point(fields=["類別"], bind="legend")
 
     #print(df)
-    with st.container(border=1 ,height=300):
+    with st.container(border=1):
         st.write(employee + ' 統計圖表')
-        chart = alt.Chart(df_melt).mark_line(point=True).encode(
-            x='monthdate(回報日期):O',  
-            y=alt.Y("數量:Q", axis=alt.Axis(format="d", tickMinStep=1)), 
-            color='類別:N', 
-            tooltip=["回報日期:T", "類別:N", "數量:Q"],
-            opacity=alt.condition(selection, alt.value(1), alt.value(0))  # 未選取時隱藏
-            ).transform_filter(
-            selection  # 只保留選到的類別
-            ).add_params(
-            selection
-            ).properties(height=215)
+        
+        fig =px.line(df_melt,x='回報日期',y='數量',color='類別',markers=True)
+        fig.update_layout(yaxis=dict(tickformat='d'))
+        st.plotly_chart(fig, use_container_width=True)
 
-        st.altair_chart(chart, use_container_width=True)
+
 
 def set_2columns(df,num1,num2):
     col1, col2 = st.columns([1,1])
@@ -217,29 +223,18 @@ if selected == "歷史統計查詢":
                 range_df = range_df[range_df['員工'] == employee]
                 range_df = range_df.drop(columns=['員工']) 
                 df_melt = range_df.melt(id_vars=["回報日期"], var_name="類別", value_name="數量")
-                selection = alt.selection_point(fields=["類別"], bind="legend")
-            
-                chart = alt.Chart(df_melt).mark_line(point=True).encode(
-                        x='monthdate(回報日期):O',  
-                        y=alt.Y("數量:Q", axis=alt.Axis(format="d", tickMinStep=1)), 
-                        color='類別:N', 
-                        tooltip=["回報日期:T", "類別:N", "數量:Q"],
-                        opacity=alt.condition(selection, alt.value(1), alt.value(0))  # 未選取時隱藏
-                        ).transform_filter(
-                        selection  # 只保留選到的類別
-                        ).add_params(
-                        selection
-                        ).properties(height=500)
-
-                st.altair_chart(chart, use_container_width=True)
+                fig =px.line(df_melt,x='回報日期',y='數量',color='類別',markers=True)
+                fig.update_layout(yaxis=dict(tickformat='d'))
+                st.plotly_chart(fig, use_container_width=True)
             
 
 #上傳CSV
 if selected == "上傳CSV":
     st.subheader('上傳CSV')
     upload_date = st.date_input("請選擇日期",datetime.now(),key='upload_date')
+    upload_date = str(upload_date)
     file = st.file_uploader("上傳CSV", ['.csv'])
-    if file:
+    if file is not None:
         df = pd.read_csv(file)
 
         expected_cols = ['編號', '專案', '回報人', '分配給', '優先權', 
@@ -252,12 +247,11 @@ if selected == "上傳CSV":
         if expected_cols in df.columns.tolist():
             st.warning("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
             st.stop()
-        if st.button("開始上傳",width=200):
-            upload_date = str(upload_date)
-            
-            with st.spinner("正在處理中，請稍候..."):
-                upload.upload(df,upload_date)
-                st.success("處理完成！")
+        logger.info('開始上傳')
+        
+        with st.spinner("正在處理中，請稍候..."):
+            upload.upload(df,upload_date,logger)
+            st.success("處理完成！")
 
 
 
@@ -279,5 +273,4 @@ if selected == "原始資料查詢與匯出":
     #st.success("已下載",icon="✅")
         
 
-    
     

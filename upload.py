@@ -4,6 +4,10 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 import asyncio
+from datetime import datetime
+import logging
+
+semaphore = asyncio.Semaphore(10)
 
 load_dotenv()
 
@@ -80,31 +84,36 @@ async def execute_sql(sql):
 
 
 
-async def insert_original_data(row):
-    data = str(tuple(row.tolist()))
-    sql ="""INSERT INTO `original_data`
-            (`case_no`,
-            `project`,
-            `reporter`,
-            `receiver`,
-            `priority`,
-            `severity`,
-            `frequency`,
-            `version`,
-            `category`,
-            `report_date`,
-            `os`,
-            `os_version`,
-            `platform_category`,
-            `is_public`,
-            `update_date`,
-            `status`,
-            `analysis`,
-            `fixed_version`)
-            VALUES {}
-        """.format(data).replace('nan','NULL')
+async def insert_original_data(row,logger):
+    logger.info('開始第一筆上傳')
+    start_time = datetime.now()
+    async with semaphore: 
+        data = str(tuple(row.tolist()))
+        sql ="""INSERT INTO `original_data`
+                (`case_no`,
+                `project`,
+                `reporter`,
+                `receiver`,
+                `priority`,
+                `severity`,
+                `frequency`,
+                `version`,
+                `category`,
+                `report_date`,
+                `os`,
+                `os_version`,
+                `platform_category`,
+                `is_public`,
+                `update_date`,
+                `status`,
+                `analysis`,
+                `fixed_version`)
+                VALUES {}
+            """.format(data).replace('nan','NULL')
 
-    await execute_sql(sql)
+        await execute_sql(sql)
+    end_time = datetime.now()
+    logger.info('完成{}，花費{}'.format(row.tolist()[1],end_time-start_time))
 
 
 async def insert_daily_results_data(data):
@@ -143,15 +152,15 @@ async def async_insert_daily_results_data(day_results,date):
         results = await asyncio.gather(*tasks)
     return
 
-async def async_insert_original_data(df):
+async def async_insert_original_data(df,logger):
     rows = df.values
-    tasks = [insert_original_data(row) for row in rows]
+    tasks = [insert_original_data(row,logger) for row in rows]
     results = await asyncio.gather(*tasks)
     return
 
-def upload(df,date):
+def upload(df,date,logger):
     df = df.drop(columns= "摘要") 
-    #asyncio.run(async_insert_original_data(df))
+    asyncio.run(async_insert_original_data(df,logger))
     day_results = daily_results(df)
     asyncio.run(async_insert_daily_results_data(day_results,date))
     return
