@@ -7,6 +7,9 @@ import altair as alt
 import upload
 import select_sql
 
+import os
+os.system('pip install streamlit-option-menu')
+
 
 
 def chart_as_datatype_container(df,cat,color):
