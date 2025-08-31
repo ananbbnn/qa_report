@@ -1,3 +1,7 @@
+import os
+os.system('pip install streamlit-option-menu')
+
+
 import streamlit as st
 from streamlit_option_menu import option_menu
 import pandas as pd
@@ -7,8 +11,6 @@ import altair as alt
 import upload
 import select_sql
 
-import os
-os.system('pip install streamlit-option-menu')
 
 
 
