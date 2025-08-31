@@ -1,0 +1,5 @@
+streamlit_option_menu
+plotly
+altair
+SQLAlchemy
+dotenv
