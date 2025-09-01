@@ -3,11 +3,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 import pandas as pd
-import asyncio
 from datetime import datetime
-import logging
 
-semaphore = asyncio.Semaphore(10)
 
 load_dotenv()
 
@@ -15,6 +12,10 @@ DB_HOST = os.getenv("DB_HOST")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
+
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+mysql_engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=mysql_engine)
 
 def daily_results(df):
     df['回報日期'] = pd.to_datetime(df['回報日期'], errors='coerce')
@@ -73,52 +74,55 @@ def daily_results(df):
     people_results['待測試'] = {'新問題':under_test}
     return people_results
 
+def insert_original_data(data_dict,logger):
+        start_time = datetime.now()
+        sql = text("""INSERT INTO `original_data`
+                (`case_no`, `project`, `reporter`, `receiver`,
+                `priority`, `severity`, `frequency`, `version`,
+                `category`, `report_date`, `os`, `os_version`,
+                `platform_category`, `is_public`, `update_date`,
+                `status`, `analysis`, `fixed_version`)
+        VALUES (:case_no, :project, :reporter, :receiver, :priority, :severity, :frequency,
+                :version, :category, :report_date, :os, :os_version, :platform_category, :is_public,
+                :update_date, :status, :analysis, :fixed_version)
+                ON DUPLICATE KEY UPDATE
+                project = VALUES(project),
+                reporter = VALUES(reporter),
+                receiver = VALUES(receiver),
+                priority = VALUES(priority),
+                severity = VALUES(severity),
+                frequency = VALUES(frequency),
+                version = VALUES(version),
+                category = VALUES(category),
+                report_date = VALUES(report_date),
+                os = VALUES(os),
+                os_version = VALUES(os_version),
+                platform_category = VALUES(platform_category),
+                is_public = VALUES(is_public),
+                update_date = VALUES(update_date),
+                status = VALUES(status),
+                analysis = VALUES(analysis),
+                fixed_version = VALUES(fixed_version)
+                """)
+        
+        session = Session()
+        try:
+            session.execute(sql, data_dict)  # 批次 insert
+            session.commit()
+            end_time = datetime.now()
+            logger.info(f"成功插入 {len(data_dict)} 筆資料，耗時 {end_time - start_time}")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"批次插入失敗: {e}")
+            raise
+        finally:
+            session.close()
 
-async def execute_sql(sql):
-    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
-    mysql_engine = create_engine(DATABASE_URL)
-    Session = sessionmaker(bind=mysql_engine)
-    session = Session()
-    session.execute(text(sql))
-    session.commit()
 
 
+def insert_daily_results_data(data):
 
-async def insert_original_data(row,logger):
-    logger.info('開始第一筆上傳')
-    start_time = datetime.now()
-    async with semaphore: 
-        data = str(tuple(row.tolist()))
-        sql ="""INSERT INTO `original_data`
-                (`case_no`,
-                `project`,
-                `reporter`,
-                `receiver`,
-                `priority`,
-                `severity`,
-                `frequency`,
-                `version`,
-                `category`,
-                `report_date`,
-                `os`,
-                `os_version`,
-                `platform_category`,
-                `is_public`,
-                `update_date`,
-                `status`,
-                `analysis`,
-                `fixed_version`)
-                VALUES {}
-            """.format(data).replace('nan','NULL')
-
-        await execute_sql(sql)
-    end_time = datetime.now()
-    logger.info('完成{}，花費{}'.format(row.tolist()[1],end_time-start_time))
-
-
-async def insert_daily_results_data(data):
-
-    sql ='''INSERT INTO `daily_results`
+    sql =text('''INSERT INTO `daily_results`
             (`employee`,
             `report_date`,
             `new_issues`,
@@ -135,11 +139,13 @@ async def insert_daily_results_data(data):
             important_unprocessed = VALUES(important_unprocessed),
             external_unprocessed = VALUES(external_unprocessed),
             under_test = VALUES(under_test)
-        '''.format(str(tuple(data))).replace('nan','NULL')
+        '''.format(str(tuple(data))).replace('nan','NULL'))
     
-    await execute_sql(sql)
+    session = Session()
+    session.execute(sql)
+    session.commit()
 
-async def async_insert_daily_results_data(day_results,date):
+def async_insert_daily_results_data(day_results,date):
     for key,value in day_results.items():
         if key == '待測試':
             data = [key, date, 0, 0, 0, 0, 0, value['新問題']]
@@ -148,21 +154,43 @@ async def async_insert_daily_results_data(day_results,date):
             data = [key, date] + list(value.values()) + [0]
             print(data)
 
-        tasks = [insert_daily_results_data(data)]
-        results = await asyncio.gather(*tasks)
+        #tasks = [insert_daily_results_data(data)]
+        #results = await asyncio.gather(*tasks)
     return
 
-async def async_insert_original_data(df,logger):
+def async_insert_original_data(df,logger):
     rows = df.values
-    tasks = [insert_original_data(row,logger) for row in rows]
-    results = await asyncio.gather(*tasks)
+    #tasks = [insert_original_data(row,logger) for row in rows]
+    #results = await asyncio.gather(*tasks)
     return
 
 def upload(df,date,logger):
     df = df.drop(columns= "摘要") 
-    asyncio.run(async_insert_original_data(df,logger))
+    df = df.replace(float('nan'), None) # 將 NaN 替換為 None
+    #asyncio.run(async_insert_original_data(df,logger))
+    rows = df.values
+    original_data = [row.tolist() for row in rows]
+    
+    # list of list 轉換成 list of dict
+    keys = ["case_no", "project", "reporter", "receiver",
+            "priority", "severity", "frequency", "version",
+            "category", "report_date", "os", "os_version",
+            "platform_category", "is_public", "update_date",
+            "status", "analysis", "fixed_version"]
+    original_data_dict = [dict(zip(keys, row)) for row in original_data]
+    insert_original_data(original_data_dict,logger)
+
+
     day_results = daily_results(df)
-    asyncio.run(async_insert_daily_results_data(day_results,date))
+    #asyncio.run(async_insert_daily_results_data(day_results,date))
+    for key,value in day_results.items():
+        if key == '待測試':
+            daily_data = [key, date, 0, 0, 0, 0, 0, value['新問題']]
+            #print(daily_data)
+        else:
+            daily_data = [key, date] + list(value.values()) + [0]
+            #print(daily_data)
+        insert_daily_results_data(daily_data)
     return
 
 

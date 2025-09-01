@@ -4,23 +4,35 @@ import pandas as pd
 from datetime import datetime
 import plotly.graph_objects as go
 import plotly.express as px
-import altair as alt
+from dotenv import load_dotenv
+import os
 import logging
 import upload
 import select_sql
+from SQLAlchemyLogHandler import SQLAlchemyLogHandler
+
+load_dotenv()
+
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 
 # 建立Logger
 logger = logging.getLogger('my_logger')
 logger.setLevel(logging.DEBUG)
 
 # 建立Handler
-file_handler = logging.FileHandler(r'C:\Users\ananb\OneDrive\Desktop\新增資料夾\app.log')
-file_handler.setLevel(logging.INFO)
+if not logger.handlers:
+    sqlalchemy_handler = SQLAlchemyLogHandler(DATABASE_URL)
+    #file_handler = logging.FileHandler(r'C:\Users\ananb\OneDrive\Desktop\新增資料夾\app.log')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    #file_handler.setFormatter(formatter)
+    sqlalchemy_handler.setFormatter(formatter)
+    #logger.addHandler(file_handler)
+    logger.addHandler(sqlalchemy_handler) # 加到 logger 上
 
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-
-logger.addHandler(file_handler) # 加到 logger 上
 
 
 def chart_as_datatype_container(df,cat,color):
@@ -69,7 +81,7 @@ def chart_as_employee_container(df, employee):
     df = df.drop(columns=['員工'])
     # 轉換成長格式
     df_melt = df.melt(id_vars=["回報日期"], var_name="類別", value_name="數量")
-    selection = alt.selection_point(fields=["類別"], bind="legend")
+    
 
     #print(df)
     with st.container(border=1):
@@ -236,18 +248,22 @@ if selected == "上傳CSV":
     file = st.file_uploader("上傳CSV", ['.csv'])
     if file is not None:
         df = pd.read_csv(file)
+        #print(df)
 
-        expected_cols = ['編號', '專案', '回報人', '分配給', '優先權', 
-                        '嚴重性', '出現頻率', '產品版本', '類別', '回報日期', 
-                        '作業系統', '作業系統版本', '平台類型', '檢視狀態', 
-                        '已更新', '摘要', '狀態', '問題分析', '已修正版本']
+        expected_cols = ['編號', '專案', '回報人', '分配給', '優先權',
+                         '嚴重性', '出現頻率', '產品版本', '類別', '回報日期',
+                         '作業系統', '作業系統版本', '平台類型', '檢視狀態',
+                         '已更新', '摘要', '狀態', '問題分析', '已修正版本']
         df.columns = df.columns.str.strip()   # 去掉前後空白
         df = df.dropna(axis=0, how='all')     # 移除完全空白的列
 
-        if expected_cols in df.columns.tolist():
-            st.warning("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
-            st.stop()
-        logger.info('開始上傳')
+        for ex in expected_cols:
+            if ex not in df.columns.tolist():
+                st.warning("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
+                logger.warning(f"CSV 檔案格式不正確，{expected_cols} 其中有欄位缺失")
+                st.stop()
+                
+        logger.info(f'開始上傳，日期: {upload_date}，檔案名稱: {file.name}')
         
         with st.spinner("正在處理中，請稍候..."):
             upload.upload(df,upload_date,logger)
