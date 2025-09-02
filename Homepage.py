@@ -111,7 +111,7 @@ with st.sidebar:
 #首頁  QA統計圖表
 if selected == "QA統計圖表":
     st.markdown('## QA統計圖表')
-    logger.info('進入 QA統計圖表 頁面')
+    
 
     #依類別分類的內容---------------------------------------------
     df_30 = select_sql.search_last30days_result()
@@ -153,7 +153,7 @@ if selected == "QA統計圖表":
 #歷史統計查詢
 if selected == "歷史統計查詢":
     st.subheader('歷史統計查詢')
-    logger.info('進入 歷史統計查詢 頁面')
+    
     tab1, tab2 = st.tabs(["單日統計", "區間統計(不可超過3個月)"])
     with tab1:
 
@@ -166,7 +166,7 @@ if selected == "歷史統計查詢":
         if query:
             daily_results = select_sql.search_daily_results(daily_date)
             if daily_results is None:
-                st.warning("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
+                st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
                 st.stop()
 
             under_test = daily_results[daily_results['員工'] == '待測試']['待測試'].values[0]
@@ -205,26 +205,26 @@ if selected == "歷史統計查詢":
         employee_list = select_sql.search_employee_list()
         col1, col2, col3, col4, col5 = st.columns(spec=[5,1,5,5,5], vertical_alignment='bottom')
         with col1:
-            start_date = st.date_input("開始日期",datetime.now(), key='start_date')
+            start_date = st.date_input("開始日期",datetime.now(), key='history_search_start_date')
         with col2:
             st.markdown('### ～')
         with col3:
-            end_date = st.date_input("結束日期",datetime.now(), key='end_date')
+            end_date = st.date_input("結束日期",datetime.now(), key='history_search_end_date')
         with col4:
-            select_employee = st.selectbox(label='員工',label_visibility='hidden',key='select_employee' ,options=employee_list)
+            select_employee = st.selectbox(label='員工',label_visibility='hidden',key='history_search_select_employee' ,options=employee_list)
         with col5:
-            query_range = st.button("查詢",key='query_range')
+            query_range = st.button("查詢",key='history_search_query_range')
         if query_range and start_date > end_date:
-            st.warning("結束日期需大於或等於開始日期",icon="⚠️")
+            st.error("結束日期需大於或等於開始日期",icon="⚠️")
             st.stop()
         elif query_range and end_date - start_date > pd.Timedelta(days=92):
-            st.warning("區間不可超過3個月",icon="⚠️")
+            st.error("區間不可超過3個月",icon="⚠️")
             st.stop()
         if query_range:
 
             range_df = select_sql.search_range_results(start_date,end_date)
             if range_df is None:
-                st.warning("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
+                st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
                 st.stop()
             
             under_test = range_df[range_df['員工'] == '待測試']['待測試'].to_list() # 待測試
@@ -250,8 +250,6 @@ if selected == "上傳CSV":
     
     if file is not None:
         df = pd.read_csv(file)
-        #print(df)
-        logger.info('上傳')
 
         expected_cols = ['編號', '專案', '回報人', '分配給', '優先權',
                          '嚴重性', '出現頻率', '產品版本', '類別', '回報日期',
@@ -262,8 +260,8 @@ if selected == "上傳CSV":
 
         for ex in expected_cols:
             if ex not in df.columns.tolist():
-                st.warning("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
-                logger.warning(f"CSV 檔案格式不正確，{expected_cols} 其中有欄位缺失")
+                st.error("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
+                logger.error(f"CSV 檔案格式不正確，{expected_cols} 其中有欄位缺失")
                 st.stop()
         upload_date = st.date_input("上傳檔案最新的回報日期",df['回報日期'].max(), key='upload_date')
         upload_date = str(upload_date)
@@ -282,14 +280,63 @@ if selected == "上傳CSV":
 #資料查詢與匯出
 if selected == "資料查詢與匯出":
     st.subheader('資料查詢與匯出')
-    logger.info('進入 資料查詢與匯出 頁面')
 
-    original_df = select_sql.export_original_data()
-    download_button = st.download_button(label='匯出CSV',data=original_df.to_csv(index=False).encode('utf-8-sig'),file_name='qa_report.csv',mime='text/csv')
-    if original_df is None:
-        st.warning("查無資料，請確認是否已上傳資料",icon="⚠️")
-        st.stop()
+    tab1, tab2 = st.tabs(["原始資料查詢與匯出", "Log記錄查詢與匯出"])
+    with tab1:
+        with st.container(border=1):
+            col1, col2, col3, col4, col5 = st.columns(spec=[6,1,6,2,2], vertical_alignment='bottom')
+            with col1:
+                start_report_date = st.date_input("回報日期起始",None, key='start_report_date')
+            with col2:
+                st.markdown('### ～')
+            with col3:
+                end_report_date = st.date_input("回報日期結束",None, key='end_report_date')
+            with col4:
+                query_range = st.button("查詢",key='all_data_search_query_range',use_container_width=True)
+            with col5:
+                if query_range:
+                    original_df = select_sql.export_original_data()
+                    original_df = original_df.set_index('編號')
+                    # 檢查日期欄位並自動補齊
+                    if start_report_date == None:
+                        start_report_date = original_df['回報日期'].min()
+                    if end_report_date == None:
+                        end_report_date = original_df['回報日期'].max()
+                    
+
+                    original_df = original_df[(original_df['回報日期'] >= start_report_date) & (original_df['回報日期'] <= end_report_date)]
+                    original_df = original_df.sort_values(by='回報日期', ascending=False)
+                    csv_data = original_df.to_csv().encode('utf-8-sig')
+                    if start_report_date > end_report_date:
+                        download_button = st.button("匯出CSV",key='disabled_button',disabled=True,use_container_width=True)
+                    else:
+                        download_button = st.download_button(
+                            label='匯出CSV',
+                            data=csv_data,
+                            file_name='qa_report_original_data.csv',
+                            mime='text/csv',
+                            use_container_width=True,
+                            key='download_csv_button'
+                    )
+                    if original_df is None:
+                        st.error("查無資料，請確認是否已上傳資料",icon="⚠️")
+                        st.stop()
+                else:
+                    download_button = st.button("匯出CSV",key='disabled_button',disabled=True,use_container_width=True)
+
+        if query_range:
+            if start_report_date > end_report_date:
+                        st.error("Error:起始日期不能晚於結束日期",icon="⚠️")
+                        st.stop()
+            st.dataframe(original_df)
+            
+
     #st.success("已下載",icon="✅")
-        
+
+#代辦事項:
+#1.原始資料查詢邏輯 Done
+#2.log紀錄查詢與匯出
+#3.匯入紀錄、批次結果、錯誤紀錄、查詢紀錄、效能監控的log紀錄
+#4.刪除資料庫資料，重新確認上傳邏輯是否正常
 
     
