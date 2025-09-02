@@ -106,12 +106,13 @@ def set_2columns(df,num1,num2):
 st.set_page_config(page_title="QA Report", layout="wide" )
 
 with st.sidebar:
-    selected = option_menu("選單", ["QA統計圖表", "歷史統計查詢", "上傳CSV", "原始資料查詢與匯出"])
+    selected = option_menu("選單", ["QA統計圖表", "歷史統計查詢", "上傳CSV", "資料查詢與匯出"])
 
 #首頁  QA統計圖表
 if selected == "QA統計圖表":
     st.markdown('## QA統計圖表')
-    
+    logger.info('進入 QA統計圖表 頁面')
+
     #依類別分類的內容---------------------------------------------
     df_30 = select_sql.search_last30days_result()
     employee_list = select_sql.search_employee_list()
@@ -152,6 +153,7 @@ if selected == "QA統計圖表":
 #歷史統計查詢
 if selected == "歷史統計查詢":
     st.subheader('歷史統計查詢')
+    logger.info('進入 歷史統計查詢 頁面')
     tab1, tab2 = st.tabs(["單日統計", "區間統計(不可超過3個月)"])
     with tab1:
 
@@ -243,12 +245,13 @@ if selected == "歷史統計查詢":
 #上傳CSV
 if selected == "上傳CSV":
     st.subheader('上傳CSV')
-    upload_date = st.date_input("請選擇日期",datetime.now(),key='upload_date')
-    upload_date = str(upload_date)
+    logger.info('進入 上傳CSV 頁面')
     file = st.file_uploader("上傳CSV", ['.csv'])
+    
     if file is not None:
         df = pd.read_csv(file)
         #print(df)
+        logger.info('上傳')
 
         expected_cols = ['編號', '專案', '回報人', '分配給', '優先權',
                          '嚴重性', '出現頻率', '產品版本', '類別', '回報日期',
@@ -262,7 +265,8 @@ if selected == "上傳CSV":
                 st.warning("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
                 logger.warning(f"CSV 檔案格式不正確，{expected_cols} 其中有欄位缺失")
                 st.stop()
-                
+        upload_date = st.date_input("上傳檔案最新的回報日期",df['回報日期'].max(), key='upload_date')
+        upload_date = str(upload_date)
         logger.info(f'開始上傳，日期: {upload_date}，檔案名稱: {file.name}')
         
         with st.spinner("正在處理中，請稍候..."):
@@ -275,12 +279,11 @@ if selected == "上傳CSV":
 
 
 
-#原始資料查詢
-if selected == "原始資料查詢與匯出":
-    st.subheader('原始資料查詢與匯出')
-    
-    
-        
+#資料查詢與匯出
+if selected == "資料查詢與匯出":
+    st.subheader('資料查詢與匯出')
+    logger.info('進入 資料查詢與匯出 頁面')
+
     original_df = select_sql.export_original_data()
     download_button = st.download_button(label='匯出CSV',data=original_df.to_csv(index=False).encode('utf-8-sig'),file_name='qa_report.csv',mime='text/csv')
     if original_df is None:

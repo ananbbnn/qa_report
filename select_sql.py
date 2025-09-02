@@ -14,7 +14,10 @@ DB_NAME = os.getenv("DB_NAME")
 
 def execute_sql(sql):
     DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
-    mysql_engine = create_engine(DATABASE_URL)
+    mysql_engine = create_engine(DATABASE_URL,
+                                pool_recycle=3600,
+                                pool_pre_ping=True
+                                )
     Session = sessionmaker(bind=mysql_engine)
     session = Session()
     result = session.execute(text(sql))
@@ -96,8 +99,7 @@ def search_range_results(start_date,end_date):
     return df
 
 def export_original_data():
-    sql = '''
-        SELECT  `id`,
+    sql = '''SELECT  
                 `case_no`,
                 `project`,
                 `reporter`,
@@ -116,9 +118,9 @@ def export_original_data():
                 `status`,
                 `analysis`,
                 `fixed_version`
-        FROM `qa_report`.`original_data`
-        ORDER BY `update_date` DESC
-    '''
+            FROM `qa_report`.`original_data`
+            ORDER BY `update_date` DESC
+        '''
     result = execute_sql(sql)
     result = result.fetchall()
     if result == []:
@@ -127,7 +129,7 @@ def export_original_data():
     df.columns = ['編號', '專案', '回報人', '分配給', '優先權', 
                 '嚴重性', '出現頻率', '產品版本', '類別', '回報日期', 
                 '作業系統', '作業系統版本', '平台類型', '檢視狀態', 
-                '已更新', '摘要', '狀態', '問題分析', '已修正版本']
+                '已更新', '狀態', '問題分析', '已修正版本']
     return df
 
 

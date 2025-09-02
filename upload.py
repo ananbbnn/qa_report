@@ -14,7 +14,10 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
-mysql_engine = create_engine(DATABASE_URL)
+mysql_engine = create_engine(DATABASE_URL,
+                            pool_recycle=3600,
+                            pool_pre_ping=True
+                            )
 Session = sessionmaker(bind=mysql_engine)
 
 def daily_results(df):

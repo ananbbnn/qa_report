@@ -22,7 +22,10 @@ class LogEntry(Base):
 class SQLAlchemyLogHandler(logging.Handler):
     def __init__(self, db_url):
         super().__init__()
-        self.engine = create_engine(db_url)
+        self.engine = create_engine(db_url,
+                                pool_recycle=3600,
+                                pool_pre_ping=True
+                                )
         # 確保資料表存在，如果不存在則建立
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
@@ -43,7 +46,6 @@ class SQLAlchemyLogHandler(logging.Handler):
         except Exception as e:
             # 處理可能發生的錯誤，例如連線中斷
             session.rollback()
-            print(f"Error logging to database: {e}")
         finally:
             # 確保 Session 被關閉
             session.close()
