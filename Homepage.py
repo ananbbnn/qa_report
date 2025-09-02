@@ -245,7 +245,7 @@ if selected == "歷史統計查詢":
 #上傳CSV
 if selected == "上傳CSV":
     st.subheader('上傳CSV')
-    logger.info('進入 上傳CSV 頁面')
+    
     file = st.file_uploader("上傳CSV", ['.csv'])
     
     if file is not None:
