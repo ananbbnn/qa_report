@@ -78,7 +78,7 @@ def daily_results(df):
     return people_results
 
 def insert_original_data(data_dict,logger):
-        start_time = datetime.now()
+        
         sql = text("""INSERT INTO `original_data`
                 (`case_no`, `project`, `reporter`, `receiver`,
                 `priority`, `severity`, `frequency`, `version`,
@@ -107,21 +107,17 @@ def insert_original_data(data_dict,logger):
                 analysis = VALUES(analysis),
                 fixed_version = VALUES(fixed_version)
                 """)
-        
+        logger.info(f"[上傳CSV] 執行 SQL: {sql}")
         session = Session()
         try:
             session.execute(sql, data_dict)  # 批次 insert
             session.commit()
-            end_time = datetime.now()
-            logger.info(f"成功插入 {len(data_dict)} 筆資料，耗時 {end_time - start_time}")
         except Exception as e:
             session.rollback()
-            logger.error(f"批次插入失敗: {e}")
+            logger.error(f"[上傳CSV] 批次上傳失敗: {e}")
             raise
         finally:
             session.close()
-
-
 
 def insert_daily_results_data(data):
 
@@ -147,25 +143,6 @@ def insert_daily_results_data(data):
     session = Session()
     session.execute(sql)
     session.commit()
-
-def async_insert_daily_results_data(day_results,date):
-    for key,value in day_results.items():
-        if key == '待測試':
-            data = [key, date, 0, 0, 0, 0, 0, value['新問題']]
-            print(data)
-        else:
-            data = [key, date] + list(value.values()) + [0]
-            print(data)
-
-        #tasks = [insert_daily_results_data(data)]
-        #results = await asyncio.gather(*tasks)
-    return
-
-def async_insert_original_data(df,logger):
-    rows = df.values
-    #tasks = [insert_original_data(row,logger) for row in rows]
-    #results = await asyncio.gather(*tasks)
-    return
 
 def upload(df,date,logger):
     df = df.drop(columns= "摘要") 
@@ -197,5 +174,7 @@ def upload(df,date,logger):
     return
 
 
-#if __name__ == "__main__":
-    #asyncio.run(main())
+#start_time = datetime.now()
+#end_time = datetime.now()
+#logger.info(f"成功插入 {len(data_dict)} 筆資料，耗時 {end_time - start_time}")
+#logger.error(f"批次插入失敗: {e}")

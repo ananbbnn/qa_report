@@ -34,47 +34,49 @@ if not logger.handlers:
     logger.addHandler(sqlalchemy_handler) # 加到 logger 上
 
 
-
 def chart_as_datatype_container(df,cat,color):
+
+    with st.container(border=1 ,height=400):
+        title = f'<span style="color:{color};">{cat}</span> 統計圖表'
         
-            with st.container(border=1 ,height=500,):
-                title = f'<h3 style="color:{color}; padding: 0;">{cat} <span style="color:white">統計圖表</span></h3>'
-                st.markdown(title, unsafe_allow_html=True)
-                st.markdown('''<style>
-                            .stVerticalBlock{
-                            overflow: hidden;
-                            }</style>''', 
-                            unsafe_allow_html=True) # 調整CSS隱藏scroll bar
-                
-                fig = go.Figure()
+        st.markdown('''<style>
+                    .stVerticalBlock{
+                    overflow: hidden;
+                    }</style>''', 
+                    unsafe_allow_html=True) # 調整CSS隱藏scroll bar
+        
+        fig = go.Figure()
 
-                totals = []
-                #totals_text = []
-                for date in df['回報日期'].unique():
-                    total = df[df['回報日期'] == date][cat].sum()
-                    totals.append(total)
-                                                                           
-                # 只顯示月日
-                x_labels = [pd.to_datetime(date).strftime('%m-%d') for date in df['回報日期'].unique()]
+        totals = []
+        for date in df['回報日期'].unique():
+            total = df[df['回報日期'] == date][cat].sum()
+            totals.append(total)
+                                        
+        # 只顯示月日
+        x_labels = [pd.to_datetime(date).strftime('%m-%d') for date in df['回報日期'].unique()]
 
-                #print(x_labels)
-                fig.add_trace(go.Bar(x=x_labels, 
-                                    y=totals, 
-                                    name=cat,
-                                    showlegend=False,
-                                    marker_color=color,
-                                    
-                                    ))
-                fig.add_trace(go.Scatter(x=x_labels, 
-                                        y=(totals), 
-                                        mode="text",
-                                        text=totals,
-                                        textposition="top center",
-                                        showlegend=False,
-                                        ))
-                #fig.update_layout(barmode="stack")
-                fig.update_xaxes(type="category")
-                st.plotly_chart(fig, use_container_width=True)
+        fig.add_trace(go.Bar(
+            x=x_labels, 
+            y=totals, 
+            name=cat,
+            showlegend=False,
+            marker_color=color,
+        ))
+        fig.add_trace(go.Scatter(
+            x=x_labels, 
+            y=totals, 
+            mode="text",
+            text=totals,
+            textposition="top center",
+            showlegend=False,
+        ))
+        fig.update_xaxes(type="category")
+        fig.update_layout(
+            title=title,
+            yaxis=dict(tickformat='d'),
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 def chart_as_employee_container(df, employee):
     df = df[df['員工'] == employee]
@@ -82,16 +84,13 @@ def chart_as_employee_container(df, employee):
     # 轉換成長格式
     df_melt = df.melt(id_vars=["回報日期"], var_name="類別", value_name="數量")
     
-
-    #print(df)
     with st.container(border=1):
-        st.write(employee + ' 統計圖表')
-        
+        title = employee + ' 統計圖表'
         fig =px.line(df_melt,x='回報日期',y='數量',color='類別',markers=True)
-        fig.update_layout(yaxis=dict(tickformat='d'))
+        fig.update_layout(
+            title=title,
+            yaxis=dict(tickformat='d'))
         st.plotly_chart(fig, use_container_width=True)
-
-
 
 def set_2columns(df,num1,num2):
     col1, col2 = st.columns([1,1])
@@ -103,7 +102,8 @@ def set_2columns(df,num1,num2):
         except IndexError:
             return
 
-st.set_page_config(page_title="QA Report", layout="wide" )
+st.set_page_config(page_title="QA Report", layout="wide")
+
 
 with st.sidebar:
     selected = option_menu("選單", ["QA統計圖表", "歷史統計查詢", "上傳CSV", "資料查詢與匯出"])
@@ -114,12 +114,18 @@ if selected == "QA統計圖表":
     
 
     #依類別分類的內容---------------------------------------------
-    df_30 = select_sql.search_last30days_result()
-    employee_list = select_sql.search_employee_list()
+    logger.info(f'[QA統計圖表] 開始查詢 QA統計圖表')
+    start_time = datetime.now()
+    df_30 = select_sql.search_last30days_result(logger)
+    employee_list = select_sql.search_employee_list(logger)
     category_df = pd.DataFrame(columns=['category','color'])
     category_df['category'] = ['今日完成', '累積未完成', '新問題', '重要未處理', '外部未處理']
     category_df['color'] = ['#83c9ff','#ffabab','#ff2b2b','#7defa1','#0066cc']
     #print(category_df)
+    if df_30 is None:
+        st.error("查無資料，請確認是否已上傳資料",icon="⚠️")
+        logger.error(f"[QA統計圖表]查無資料，請確認是否已上傳資料")
+        st.stop()
     col1, col2 = st.columns([1,1])
     try:
         with col1:
@@ -140,23 +146,18 @@ if selected == "QA統計圖表":
     except IndexError:
         pass
     
-    
-    
-
-    
 
     # 這是依員工分類的內容---------------------------------------------
     for i in range(0,len(employee_list),2):
         set_2columns(df_30,i,i+1)
+    
+    end_time = datetime.now()
+    logger.info(f"[QA統計圖表] 成功查詢 耗時 {end_time - start_time}")
 
 
 #歷史統計查詢
-if selected == "歷史統計查詢":
-    st.subheader('歷史統計查詢')
-    
-    tab1, tab2 = st.tabs(["單日統計", "區間統計(不可超過3個月)"])
+def history_statistics_tab1():
     with tab1:
-
         col1, col2 = st.columns(spec=[0.7, 0.3], vertical_alignment='bottom')
         with col1:
             daily_date = st.date_input("請選擇日期",datetime.now(), key='daily_date')
@@ -164,11 +165,14 @@ if selected == "歷史統計查詢":
             query = st.button("查詢")
 
         if query:
-            daily_results = select_sql.search_daily_results(daily_date)
+            logger.info(f'[歷史統計查詢-單日統計] 開始查詢 {daily_date} 的統計結果')
+            start_time = datetime.now()
+            daily_results = select_sql.search_daily_results(daily_date,logger)
             if daily_results is None:
                 st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
-                st.stop()
-
+                logger.error(f"[歷史統計查詢-單日統計] 查無資料，請確認日期是否正確或是否已上傳當日資料: {daily_date}")
+                return
+            
             under_test = daily_results[daily_results['員工'] == '待測試']['待測試'].values[0]
             daily_results = daily_results[daily_results['員工'] != '待測試']
             options = daily_results.columns.tolist()
@@ -199,39 +203,43 @@ if selected == "歷史統計查詢":
             daily_results.loc['合計'] = daily_results.sum(axis=0)
             st.dataframe(daily_results)
             st.markdown(f"待測試: {under_test}")
-            #st.bar_chart(daily_results.set_index('員工')[selected_columns], height=400)
+            end_time = datetime.now()
+            logger.info(f"[歷史統計查詢-單日統計] 成功查詢 {daily_date} 的統計結果，耗時 {end_time - start_time}")
+
+def history_statistics_tab2(employee_list):
 
     with tab2:
-        employee_list = select_sql.search_employee_list()
-        col1, col2, col3, col4, col5 = st.columns(spec=[5,1,5,5,5], vertical_alignment='bottom')
+        
+        col1, col2, col3, col4, col5 = st.columns(spec=[5,0.5,5,5,5], vertical_alignment='bottom')
         with col1:
             start_date = st.date_input("開始日期",datetime.now(), key='history_search_start_date')
         with col2:
-            st.markdown('### ～')
+            st.markdown("<p style='font-size: 24px;'>～</p>", unsafe_allow_html=True)
         with col3:
             end_date = st.date_input("結束日期",datetime.now(), key='history_search_end_date')
         with col4:
-            select_employee = st.selectbox(label='員工',label_visibility='hidden',key='history_search_select_employee' ,options=employee_list)
+            select_employee = st.selectbox('員工',key='history_search_select_employee' ,options=employee_list)
         with col5:
             query_range = st.button("查詢",key='history_search_query_range')
         if query_range and start_date > end_date:
-            st.error("結束日期需大於或等於開始日期",icon="⚠️")
-            st.stop()
+            st.warning("結束日期需大於或等於開始日期",icon="⚠️")
+            logger.warning(f"[歷史統計查詢-區間統計] 結束日期需大於或等於開始日期: {start_date} ~ {end_date}")
+            return
         elif query_range and end_date - start_date > pd.Timedelta(days=92):
-            st.error("區間不可超過3個月",icon="⚠️")
-            st.stop()
+            st.warning("區間不可超過3個月",icon="⚠️")
+            logger.warning(f"[歷史統計查詢-區間統計] 區間不可超過3個月: {start_date} ~ {end_date}")
+            return
         if query_range:
-
-            range_df = select_sql.search_range_results(start_date,end_date)
+            logger.info(f'[歷史統計查詢-區間統計] 開始查詢 {start_date} ~ {end_date} 的統計結果')
+            start_time = datetime.now()
+            range_df = select_sql.search_range_results(start_date,end_date,logger)
             if range_df is None:
                 st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
-                st.stop()
-            
-            under_test = range_df[range_df['員工'] == '待測試']['待測試'].to_list() # 待測試
-            #range_df = range_df[range_df['員工'] != '待測試']
-            range_df = range_df.drop(columns=['待測試'])
-            select_date = range_df['回報日期'].unique().tolist() 
+                logger.error(f"[歷史統計查詢-區間統計] 查無資料，請確認日期是否正確或是否已上傳當日資料: {start_date} ~ {end_date}")
+                return
 
+            range_df = range_df.drop(columns=['待測試'])
+            
             if select_employee:
                 employee = select_employee
                 range_df = range_df[range_df['員工'] == employee]
@@ -241,6 +249,17 @@ if selected == "歷史統計查詢":
                 fig.update_layout(yaxis=dict(tickformat='d'))
                 st.plotly_chart(fig, use_container_width=True)
             
+            end_time = datetime.now()
+            logger.info(f"[歷史統計查詢-區間統計] 成功查詢 {start_date} ~ {end_date} 的統計結果，耗時 {end_time - start_time}")
+
+if selected == "歷史統計查詢":
+    st.subheader('歷史統計查詢')
+
+    employee_list = select_sql.search_employee_list(logger)
+    tab1, tab2 = st.tabs(["單日統計", "區間統計(不可超過3個月)"])
+
+    history_statistics_tab1()
+    history_statistics_tab2(employee_list=employee_list)
 
 #上傳CSV
 if selected == "上傳CSV":
@@ -261,41 +280,41 @@ if selected == "上傳CSV":
         for ex in expected_cols:
             if ex not in df.columns.tolist():
                 st.error("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
-                logger.error(f"CSV 檔案格式不正確，{expected_cols} 其中有欄位缺失")
+                logger.error(f"[上傳CSV] CSV 檔案格式不正確，{expected_cols} 其中有欄位缺失")
                 st.stop()
         upload_date = st.date_input("上傳檔案最新的回報日期",df['回報日期'].max(), key='upload_date')
         upload_date = str(upload_date)
-        logger.info(f'開始上傳，日期: {upload_date}，檔案名稱: {file.name}')
+        logger.info(f'[上傳CSV] 開始上傳，日期: {upload_date}，檔案名稱: {file.name}')
         
         with st.spinner("正在處理中，請稍候..."):
+            start_time = datetime.now()
             upload.upload(df,upload_date,logger)
+            end_time = datetime.now()
+            logger.info(f"[上傳CSV] 成功上傳 {len(df)} 筆資料，耗時 {end_time - start_time}")
             st.success("處理完成！")
-
-
-
-
-
 
 
 #資料查詢與匯出
 if selected == "資料查詢與匯出":
     st.subheader('資料查詢與匯出')
 
-    tab1, tab2 = st.tabs(["原始資料查詢與匯出", "Log記錄查詢與匯出"])
+    tab1, tab2 = st.tabs(["原始資料", "Log記錄"])
     with tab1:
         with st.container(border=1):
-            col1, col2, col3, col4, col5 = st.columns(spec=[6,1,6,2,2], vertical_alignment='bottom')
+            col1, col2, col3, col4, col5 = st.columns(spec=[6,0.5,6,2,2], vertical_alignment='bottom')
             with col1:
-                start_report_date = st.date_input("回報日期起始",None, key='start_report_date')
+                start_report_date = st.date_input("起始回報日期",None, key='start_report_date')
             with col2:
-                st.markdown('### ～')
+                st.markdown("<p style='font-size: 24px;'>～</p>", unsafe_allow_html=True)
             with col3:
-                end_report_date = st.date_input("回報日期結束",None, key='end_report_date')
+                end_report_date = st.date_input("結束回報日期",None, key='end_report_date')
             with col4:
                 query_range = st.button("查詢",key='all_data_search_query_range',use_container_width=True)
             with col5:
                 if query_range:
-                    original_df = select_sql.export_original_data()
+                    logger.info(f'[資料查詢與匯出-原始資料] 開始查詢 {start_report_date} ~ {end_report_date} 的原始資料(若無日期則查詢全部資料)')
+                    start_time = datetime.now()
+                    original_df = select_sql.export_original_data(logger)
                     original_df = original_df.set_index('編號')
                     # 檢查日期欄位並自動補齊
                     if start_report_date == None:
@@ -316,10 +335,13 @@ if selected == "資料查詢與匯出":
                             file_name='qa_report_original_data.csv',
                             mime='text/csv',
                             use_container_width=True,
-                            key='download_csv_button'
-                    )
+                            key='download_csv_button',
+                            on_click=lambda: logger.info(f"[資料查詢與匯出-原始資料] 使用者已下載 {len(original_df)} 筆資料，日期區間: {start_report_date} ~ {end_report_date}")
+                        )
+                        
                     if original_df is None:
                         st.error("查無資料，請確認是否已上傳資料",icon="⚠️")
+                        logger.error(f"[資料查詢與匯出-原始資料] 查無資料，請確認是否已上傳資料")
                         st.stop()
                 else:
                     download_button = st.button("匯出CSV",key='disabled_button',disabled=True,use_container_width=True)
@@ -327,16 +349,21 @@ if selected == "資料查詢與匯出":
         if query_range:
             if start_report_date > end_report_date:
                         st.error("Error:起始日期不能晚於結束日期",icon="⚠️")
+                        logger.error(f"[資料查詢與匯出-原始資料] 起始日期不能晚於結束日期: {start_report_date} ~ {end_report_date}")
                         st.stop()
             st.dataframe(original_df)
-            
+            end_time = datetime.now()
+            logger.info(f"[資料查詢與匯出-原始資料] 成功查詢 {len(original_df)} 筆資料，日期: {start_report_date} ~ {end_report_date}，耗時 {end_time - start_time}")
+
+                        
 
     #st.success("已下載",icon="✅")
+
 
 #代辦事項:
 #1.原始資料查詢邏輯 Done
 #2.log紀錄查詢與匯出
-#3.匯入紀錄、批次結果、錯誤紀錄、查詢紀錄、效能監控的log紀錄
-#4.刪除資料庫資料，重新確認上傳邏輯是否正常
+#3.匯入匯出紀錄、批次結果、錯誤紀錄、查詢紀錄、效能監控的log紀錄 Done
+#4.刪除資料庫資料，重新確認上傳邏輯是否正常 Done
 
     

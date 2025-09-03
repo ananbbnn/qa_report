@@ -11,21 +11,17 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
+DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+mysql_engine = create_engine(DATABASE_URL,
+                            pool_recycle=3600,
+                            pool_pre_ping=True
+                            )
+Session = sessionmaker(bind=mysql_engine)
 
-def execute_sql(sql):
-    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
-    mysql_engine = create_engine(DATABASE_URL,
-                                pool_recycle=3600,
-                                pool_pre_ping=True
-                                )
-    Session = sessionmaker(bind=mysql_engine)
-    session = Session()
-    result = session.execute(text(sql))
-    session.commit()
-    return result
 
-def search_daily_results(date):
-    sql = '''
+
+def search_daily_results(date,logger):
+    sql = text('''
         SELECT 
             `employee`,
             `new_issues`,
@@ -36,8 +32,11 @@ def search_daily_results(date):
             `under_test`
         FROM `qa_report`.`daily_results`
         WHERE DATE(`daily_results`.`report_date`) = '{date}'
-    '''.format(date=date)
-    result = execute_sql(sql)
+    '''.format(date=date))
+    logger.info(f'[歷史統計查詢-單日統計] 執行 SQL: {sql}') 
+    session = Session()
+    result = session.execute(sql)
+    session.commit()
     result = result.fetchall()
     if result == []:
         return
@@ -47,12 +46,15 @@ def search_daily_results(date):
     
     return df
 
-def search_employee_list():
-    sql = '''
+def search_employee_list(logger):
+    sql = text('''
         SELECT DISTINCT `employee`
         FROM `qa_report`.`daily_results`
-    '''
-    result = execute_sql(sql)
+    ''')
+    logger.info(f'[查詢員工列表] 執行 SQL: {sql}')
+    session = Session()
+    result = session.execute(sql)
+    session.commit()
     result = result.fetchall()
     
     if result == []:
@@ -61,8 +63,8 @@ def search_employee_list():
     #print(f'employee_list: {employee_list}')
     return employee_list
 
-def search_last30days_result():
-    sql = '''
+def search_last30days_result(logger):
+    sql = text('''
         SELECT `report_date`, `employee`,
                `new_issues`, `combined_done`, `cumulative_unfinished`,
                `important_unprocessed`, `external_unprocessed`
@@ -70,8 +72,11 @@ def search_last30days_result():
         WHERE `report_date` >= (
             SELECT MAX(`report_date`) FROM `qa_report`.`daily_results`
         ) - INTERVAL 30 DAY
-    '''
-    result = execute_sql(sql)
+    ''')
+    logger.info(f'[QA統計圖表] 執行 SQL: {sql}')
+    session = Session()
+    result = session.execute(sql)
+    session.commit()
     result = result.fetchall()
     if result == []:
         return
@@ -80,16 +85,19 @@ def search_last30days_result():
     #print(f'df: {df}')
     return df
 
-def search_range_results(start_date,end_date):
-    sql = '''
+def search_range_results(start_date,end_date,logger):
+    sql = text('''
         SELECT `report_date`, `employee`,
                `new_issues`, `combined_done`, `cumulative_unfinished`,
                `important_unprocessed`, `external_unprocessed`,
                 `under_test`
         FROM `qa_report`.`daily_results`
         WHERE `report_date` BETWEEN '{start_date}' AND '{end_date}'
-    '''.format(start_date=start_date,end_date=end_date)
-    result = execute_sql(sql)
+    '''.format(start_date=start_date,end_date=end_date))
+    logger.info(f'[歷史統計查詢-區間統計] 執行 SQL: {sql}')
+    session = Session()
+    result = session.execute(sql)
+    session.commit()
     result = result.fetchall()
     if result == []:
         return
@@ -98,8 +106,8 @@ def search_range_results(start_date,end_date):
     #print(df)
     return df
 
-def export_original_data():
-    sql = '''SELECT  
+def export_original_data(logger):
+    sql = text('''SELECT  
                 `case_no`,
                 `project`,
                 `reporter`,
@@ -120,8 +128,11 @@ def export_original_data():
                 `fixed_version`
             FROM `qa_report`.`original_data`
             ORDER BY `update_date` DESC
-        '''
-    result = execute_sql(sql)
+        ''')
+    logger.info(f'[資料查詢與匯出-原始資料] 執行 SQL: {sql}')
+    session = Session()
+    result = session.execute(sql)
+    session.commit()
     result = result.fetchall()
     if result == []:
             return
@@ -133,4 +144,3 @@ def export_original_data():
     return df
 
 
-#print(search_daily_results('2025-08-24'))
