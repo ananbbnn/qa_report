@@ -5,11 +5,14 @@ from datetime import datetime
 import plotly.graph_objects as go
 import plotly.express as px
 from dotenv import load_dotenv
-import os
+import os, time
 import logging
 import upload
 import select_sql
 from SQLAlchemyLogHandler import SQLAlchemyLogHandler
+
+os.environ["TZ"] = "Asia/Taipei"
+time.tzset()
 
 load_dotenv()
 
