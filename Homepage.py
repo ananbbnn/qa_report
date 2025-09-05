@@ -5,14 +5,15 @@ from datetime import datetime
 import plotly.graph_objects as go
 import plotly.express as px
 from dotenv import load_dotenv
-import os, time
+import os, time, platform
 import logging
 import upload
 import select_sql
 from SQLAlchemyLogHandler import SQLAlchemyLogHandler
 
 os.environ["TZ"] = "Asia/Taipei"
-time.tzset()
+if platform.system() != "Windows":
+    time.tzset()
 
 load_dotenv()
 
@@ -298,10 +299,7 @@ if selected == "上傳CSV":
 
 
 #資料查詢與匯出
-if selected == "資料查詢與匯出":
-    st.subheader('資料查詢與匯出')
-
-    tab1, tab2 = st.tabs(["原始資料", "Log記錄"])
+def export_data_tab1():
     with tab1:
         with st.container(border=1):
             col1, col2, col3, col4, col5 = st.columns(spec=[6,0.5,6,2,2], vertical_alignment='bottom')
@@ -330,7 +328,7 @@ if selected == "資料查詢與匯出":
                     original_df = original_df.sort_values(by='回報日期', ascending=False)
                     csv_data = original_df.to_csv().encode('utf-8-sig')
                     if start_report_date > end_report_date:
-                        download_button = st.button("匯出CSV",key='disabled_button',disabled=True,use_container_width=True)
+                        download_button = st.button("匯出CSV",key='original_data_disabled_button',disabled=True,use_container_width=True)
                     else:
                         download_button = st.download_button(
                             label='匯出CSV',
@@ -345,28 +343,91 @@ if selected == "資料查詢與匯出":
                     if original_df is None:
                         st.error("查無資料，請確認是否已上傳資料",icon="⚠️")
                         logger.error(f"[資料查詢與匯出-原始資料] 查無資料，請確認是否已上傳資料")
-                        st.stop()
+                        return
                 else:
-                    download_button = st.button("匯出CSV",key='disabled_button',disabled=True,use_container_width=True)
+                    download_button = st.button("匯出CSV",key='original_data_disabled_button',disabled=True,use_container_width=True)
 
         if query_range:
             if start_report_date > end_report_date:
                         st.error("Error:起始日期不能晚於結束日期",icon="⚠️")
                         logger.error(f"[資料查詢與匯出-原始資料] 起始日期不能晚於結束日期: {start_report_date} ~ {end_report_date}")
-                        st.stop()
+                        return
             st.dataframe(original_df)
             end_time = datetime.now()
             logger.info(f"[資料查詢與匯出-原始資料] 成功查詢 {len(original_df)} 筆資料，日期: {start_report_date} ~ {end_report_date}，耗時 {end_time - start_time}")
 
-                        
+def export_data_tab2():
+    with tab2:
+        with st.container(border=1):
+            col1, col2, col3, col4, col5 = st.columns(spec=[6,0.5,6,2,2], vertical_alignment='bottom')
+            with col1:
+                log_start_date = st.date_input("起始log紀錄日期",None, key='log_start_date')
+            with col2:
+                st.markdown("<p style='font-size: 24px;'>～</p>", unsafe_allow_html=True)
+            with col3:
+                log_end_date = st.date_input("結束log紀錄日期",None, key='log_end_date')
+            with col4:
+                query_range = st.button("查詢",key='log_search_query_range',use_container_width=True)
+            with col5:
+                if query_range:
+                    logger.info(f'[資料查詢與匯出-log紀錄] 開始查詢 {log_start_date} ~ {log_end_date} 的log紀錄(若無日期則查詢全部資料)')
+                    start_time = datetime.now()
+                    log_start_date = datetime.combine(log_start_date, datetime.min.time()) if log_start_date else None
+                    log_end_date = datetime.combine(log_end_date, datetime.max.time()) if log_end_date else None
+                    original_df = select_sql.export_log_search_data(logger)
+                    original_df = original_df.set_index('編號')
+                    # 檢查日期欄位並自動補齊
+                    if log_start_date == None:
+                        log_start_date = original_df['紀錄時間'].min()
+                    if log_end_date == None:
+                        log_end_date = original_df['紀錄時間'].max()
+
+
+                    original_df = original_df[(original_df['紀錄時間'] >= log_start_date) & (original_df['紀錄時間'] <= log_end_date)]
+                    original_df = original_df.sort_values(by='紀錄時間', ascending=False)
+                    csv_data = original_df.to_csv().encode('utf-8-sig')
+                    if log_start_date > log_end_date:
+                        download_button = st.button("下載TXT",key='log_search_disabled_button',disabled=True,use_container_width=True)
+                    else:
+                        download_button = st.download_button(
+                            label='下載TXT',
+                            data=csv_data,
+                            file_name='log.txt',
+                            mime='text/plain',
+                            use_container_width=True,
+                            key='download_txt_button',
+                            on_click=lambda: logger.info(f"[資料查詢與匯出-log紀錄] 使用者已下載 {len(original_df)} 筆資料，日期區間: {log_start_date} ~ {log_end_date}")
+                        )
+                    if original_df is None:
+                        st.error("查無log紀錄，請確認輸入日期是否正確",icon="⚠️")
+                        logger.error(f"[資料查詢與匯出-log紀錄] 查無log紀錄，請確認輸入日期是否正確")
+                        return
+                else:
+                    download_button = st.button("下載TXT",key='log_search_disabled_button',disabled=True,use_container_width=True)
+        if query_range:
+            if log_start_date > log_end_date:
+                        st.error("Error:起始日期不能晚於結束日期",icon="⚠️")
+                        logger.error(f"[資料查詢與匯出-log紀錄] 起始日期不能晚於結束日期: {log_start_date} ~ {log_end_date}")
+                        return
+            st.dataframe(original_df)
+            end_time = datetime.now()
+            logger.info(f"[資料查詢與匯出-log紀錄] 成功查詢 {len(original_df)} 筆資料，日期: {log_start_date} ~ {log_end_date}，耗時 {end_time - start_time}")
+
+
+        
+if selected == "資料查詢與匯出":
+    st.subheader('資料查詢與匯出')
+
+    tab1, tab2 = st.tabs(["原始資料", "Log記錄"])
+    export_data_tab1()
+    export_data_tab2()
 
     #st.success("已下載",icon="✅")
 
 
 #代辦事項:
 #1.原始資料查詢邏輯 Done
-#2.log紀錄查詢與匯出
+#2.log紀錄查詢與匯出 Done
 #3.匯入匯出紀錄、批次結果、錯誤紀錄、查詢紀錄、效能監控的log紀錄 Done
 #4.刪除資料庫資料，重新確認上傳邏輯是否正常 Done
-
-    
+#5.紀錄系統出錯時的log紀錄

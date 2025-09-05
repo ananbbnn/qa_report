@@ -143,4 +143,21 @@ def export_original_data(logger):
                 '已更新', '狀態', '問題分析', '已修正版本']
     return df
 
-
+def export_log_search_data(logger):
+    sql = text('''SELECT `id`,
+                `timestamp`,
+                `levelname`,
+                `message`
+                FROM `qa_report`.`logs`
+                ORDER BY `id` DESC
+            ''')
+    logger.info(f'[資料查詢與匯出-log紀錄] 執行 SQL: {sql}')
+    session = Session()
+    result = session.execute(sql)
+    session.commit()
+    result = result.fetchall()
+    if result == []:
+            return
+    df = pd.DataFrame(result)
+    df.columns = ['編號', '紀錄時間', '等級', '訊息']
+    return df
