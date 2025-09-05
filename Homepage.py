@@ -1,3 +1,4 @@
+from sqlalchemy import create_engine, text
 import streamlit as st
 from streamlit_option_menu import option_menu
 import pandas as pd
@@ -29,7 +30,12 @@ logger.setLevel(logging.DEBUG)
 
 # 建立Handler
 if not logger.handlers:
-    sqlalchemy_handler = SQLAlchemyLogHandler(DATABASE_URL)
+    try:
+        sqlalchemy_handler = SQLAlchemyLogHandler(DATABASE_URL)
+    except Exception as e:
+        print(f"無法建立資料庫日誌處理器: {e}")
+        st.error("無法建立資料庫日誌處理器，請檢查資料庫連線設定", icon="⚠️")
+        st.stop()
     #file_handler = logging.FileHandler(r'C:\Users\ananb\OneDrive\Desktop\新增資料夾\app.log')
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     #file_handler.setFormatter(formatter)
@@ -115,7 +121,6 @@ with st.sidebar:
 #首頁  QA統計圖表
 if selected == "QA統計圖表":
     st.markdown('## QA統計圖表')
-    
 
     #依類別分類的內容---------------------------------------------
     logger.info(f'[QA統計圖表] 開始查詢 QA統計圖表')
@@ -211,9 +216,7 @@ def history_statistics_tab1():
             logger.info(f"[歷史統計查詢-單日統計] 成功查詢 {daily_date} 的統計結果，耗時 {end_time - start_time}")
 
 def history_statistics_tab2(employee_list):
-
-    with tab2:
-        
+    with tab2:       
         col1, col2, col3, col4, col5 = st.columns(spec=[5,0.5,5,5,5], vertical_alignment='bottom')
         with col1:
             start_date = st.date_input("開始日期",datetime.now(), key='history_search_start_date')
@@ -264,6 +267,7 @@ if selected == "歷史統計查詢":
 
     history_statistics_tab1()
     history_statistics_tab2(employee_list=employee_list)
+
 
 #上傳CSV
 if selected == "上傳CSV":
@@ -382,7 +386,6 @@ def export_data_tab2():
                     if log_end_date == None:
                         log_end_date = original_df['紀錄時間'].max()
 
-
                     original_df = original_df[(original_df['紀錄時間'] >= log_start_date) & (original_df['紀錄時間'] <= log_end_date)]
                     original_df = original_df.sort_values(by='紀錄時間', ascending=False)
                     csv_data = original_df.to_csv().encode('utf-8-sig')
@@ -413,8 +416,6 @@ def export_data_tab2():
             end_time = datetime.now()
             logger.info(f"[資料查詢與匯出-log紀錄] 成功查詢 {len(original_df)} 筆資料，日期: {log_start_date} ~ {log_end_date}，耗時 {end_time - start_time}")
 
-
-        
 if selected == "資料查詢與匯出":
     st.subheader('資料查詢與匯出')
 
@@ -422,7 +423,7 @@ if selected == "資料查詢與匯出":
     export_data_tab1()
     export_data_tab2()
 
-    #st.success("已下載",icon="✅")
+ 
 
 
 #代辦事項:
