@@ -35,7 +35,7 @@ def daily_results(df):
 
     # 新問題
     new_issues = df[(df['狀態'] == '已分配') & (df['回報日期'] == report_date)]['分配給'].value_counts().to_dict()
-    # 今日完成
+    # 每日完成
     done_tested = df[(df['狀態'] == '已測試') & (df['已更新'] == report_date)]
     done_tested_count = done_tested['回報人'].value_counts().to_dict()
     done_assigned = df[(df['狀態'] == '待測試') & (df['已更新'] == report_date)]
@@ -50,7 +50,7 @@ def daily_results(df):
     
     daily_results = {
         '新問題': new_issues,
-        '今日完成': combined_done,
+        '每日完成': combined_done,
         '累積未完成': cumulative_unfinished,
         '重要未處理': important_unprocessed,
         '外部未處理': external_unprocessed

@@ -128,7 +128,7 @@ if selected == "QA統計圖表":
     df_30 = select_sql.search_last30days_result(logger)
     employee_list = select_sql.search_employee_list(logger)
     category_df = pd.DataFrame(columns=['category','color'])
-    category_df['category'] = ['今日完成', '累積未完成', '新問題', '重要未處理', '外部未處理']
+    category_df['category'] = ['每日完成', '累積未完成', '新問題', '重要未處理', '外部未處理']
     category_df['color'] = ['#83c9ff','#ffabab','#ff2b2b','#7defa1','#0066cc']
     #print(category_df)
     if df_30 is None:
@@ -156,7 +156,7 @@ if selected == "QA統計圖表":
         pass
     
 
-    # 這是依員工分類的內容---------------------------------------------
+    # 依員工分類的內容---------------------------------------------
     for i in range(0,len(employee_list),2):
         set_2columns(df_30,i,i+1)
     
