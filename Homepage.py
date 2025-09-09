@@ -49,12 +49,6 @@ def chart_as_datatype_container(df,cat,color):
     with st.container(border=1 ,height=400):
         title = f'<span style="color:{color};">{cat}</span> 統計圖表'
         
-        st.markdown('''<style>
-                    .stVerticalBlock{
-                    overflow: hidden;
-                    }</style>''', 
-                    unsafe_allow_html=True) # 調整CSS隱藏scroll bar
-        
         fig = go.Figure()
 
         totals = []
@@ -121,6 +115,12 @@ with st.sidebar:
 #首頁  QA統計圖表
 if selected == "QA統計圖表":
     st.markdown('## QA統計圖表')
+    st.markdown('''
+    <style>.stVerticalBlock{
+    overflow: hidden;
+    padding-top: 0rem;
+    }</style>''', 
+    unsafe_allow_html=True) # 調整CSS隱藏scroll bar
 
     #依類別分類的內容---------------------------------------------
     logger.info(f'[QA統計圖表] 開始查詢 QA統計圖表')
@@ -167,97 +167,99 @@ if selected == "QA統計圖表":
 #歷史統計查詢
 def history_statistics_tab1():
     with tab1:
-        col1, col2 = st.columns(spec=[0.7, 0.3], vertical_alignment='bottom')
-        with col1:
-            daily_date = st.date_input("請選擇日期",datetime.now(), key='daily_date')
-        with col2:
-            query = st.button("查詢")
+        with st.container(border=1):
+            col1, col2 = st.columns(spec=[0.7, 0.3], vertical_alignment='bottom')
+            with col1:
+                daily_date = st.date_input("請選擇日期",datetime.now(), key='daily_date')
+            with col2:
+                query = st.button("查詢",width='stretch',key='history_search_query')
 
-        if query:
-            logger.info(f'[歷史統計查詢-單日統計] 開始查詢 {daily_date} 的統計結果')
-            start_time = datetime.now()
-            daily_results = select_sql.search_daily_results(daily_date,logger)
-            if daily_results is None:
-                st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
-                logger.error(f"[歷史統計查詢-單日統計] 查無資料，請確認日期是否正確或是否已上傳當日資料: {daily_date}")
-                return
+            if query:
+                logger.info(f'[歷史統計查詢-單日統計] 開始查詢 {daily_date} 的統計結果')
+                start_time = datetime.now()
+                daily_results = select_sql.search_daily_results(daily_date,logger)
+                if daily_results is None:
+                    st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
+                    logger.error(f"[歷史統計查詢-單日統計] 查無資料，請確認日期是否正確或是否已上傳當日資料: {daily_date}")
+                    return
+                
+                under_test = daily_results[daily_results['員工'] == '待測試']['待測試'].values[0]
+                daily_results = daily_results[daily_results['員工'] != '待測試']
+                options = daily_results.columns.tolist()
+                if '員工' in options:
+                    options.remove('員工')
+                if '待測試' in options:
+                    options.remove('待測試')
             
-            under_test = daily_results[daily_results['員工'] == '待測試']['待測試'].values[0]
-            daily_results = daily_results[daily_results['員工'] != '待測試']
-            options = daily_results.columns.tolist()
-            if '員工' in options:
-                options.remove('員工')
-            if '待測試' in options:
-                options.remove('待測試')
-        
-            fig = go.Figure()
+                fig = go.Figure()
 
-            for col in options:
-                fig.add_trace(go.Bar(
-                    x=daily_results['員工'],
-                    y=daily_results[col],
-                    name=col
-                ))
+                for col in options:
+                    fig.add_trace(go.Bar(
+                        x=daily_results['員工'],
+                        y=daily_results[col],
+                        name=col
+                    ))
 
-            fig.update_layout(
-                barmode='group',  # 群組顯示
-                xaxis_title="員工",
-                yaxis_title="數量",
-                title=f"{daily_date} 統計結果",
-                height=500
-            )
+                fig.update_layout(
+                    barmode='group',  # 群組顯示
+                    xaxis_title="員工",
+                    yaxis_title="數量",
+                    title=f"{daily_date} 統計結果",
+                    height=500
+                )
 
-            st.plotly_chart(fig, use_container_width=True)
-            daily_results = daily_results.set_index('員工')[options]
-            daily_results.loc['合計'] = daily_results.sum(axis=0)
-            st.dataframe(daily_results)
-            st.markdown(f"待測試: {under_test}")
-            end_time = datetime.now()
-            logger.info(f"[歷史統計查詢-單日統計] 成功查詢 {daily_date} 的統計結果，耗時 {end_time - start_time}")
+                st.plotly_chart(fig, use_container_width=True)
+                daily_results = daily_results.set_index('員工')[options]
+                daily_results.loc['合計'] = daily_results.sum(axis=0)
+                st.dataframe(daily_results)
+                st.markdown(f"待測試: {under_test}")
+                end_time = datetime.now()
+                logger.info(f"[歷史統計查詢-單日統計] 成功查詢 {daily_date} 的統計結果，耗時 {end_time - start_time}")
 
 def history_statistics_tab2(employee_list):
-    with tab2:       
-        col1, col2, col3, col4, col5 = st.columns(spec=[5,0.5,5,5,5], vertical_alignment='bottom')
-        with col1:
-            start_date = st.date_input("開始日期",datetime.now(), key='history_search_start_date')
-        with col2:
-            st.markdown("<p style='font-size: 24px;'>～</p>", unsafe_allow_html=True)
-        with col3:
-            end_date = st.date_input("結束日期",datetime.now(), key='history_search_end_date')
-        with col4:
-            select_employee = st.selectbox('員工',key='history_search_select_employee' ,options=employee_list)
-        with col5:
-            query_range = st.button("查詢",key='history_search_query_range')
-        if query_range and start_date > end_date:
-            st.warning("結束日期需大於或等於開始日期",icon="⚠️")
-            logger.warning(f"[歷史統計查詢-區間統計] 結束日期需大於或等於開始日期: {start_date} ~ {end_date}")
-            return
-        elif query_range and end_date - start_date > pd.Timedelta(days=92):
-            st.warning("區間不可超過3個月",icon="⚠️")
-            logger.warning(f"[歷史統計查詢-區間統計] 區間不可超過3個月: {start_date} ~ {end_date}")
-            return
-        if query_range:
-            logger.info(f'[歷史統計查詢-區間統計] 開始查詢 {start_date} ~ {end_date} 的統計結果')
-            start_time = datetime.now()
-            range_df = select_sql.search_range_results(start_date,end_date,logger)
-            if range_df is None:
-                st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
-                logger.error(f"[歷史統計查詢-區間統計] 查無資料，請確認日期是否正確或是否已上傳當日資料: {start_date} ~ {end_date}")
+    with tab2: 
+        with st.container(border=1):      
+            col1, col2, col3, col4, col5 = st.columns(spec=[5,0.5,5,5,5], vertical_alignment='bottom')
+            with col1:
+                start_date = st.date_input("開始日期",datetime.now(), key='history_search_start_date')
+            with col2:
+                st.markdown("<p style='font-size: 24px;'>～</p>", unsafe_allow_html=True)
+            with col3:
+                end_date = st.date_input("結束日期",datetime.now(), key='history_search_end_date')
+            with col4:
+                select_employee = st.selectbox('員工',key='history_search_select_employee' ,options=employee_list)
+            with col5:
+                query_range = st.button("查詢",width='stretch',key='history_search_query_range')
+            if query_range and start_date > end_date:
+                st.warning("結束日期需大於或等於開始日期",icon="⚠️")
+                logger.warning(f"[歷史統計查詢-區間統計] 結束日期需大於或等於開始日期: {start_date} ~ {end_date}")
                 return
+            elif query_range and end_date - start_date > pd.Timedelta(days=92):
+                st.warning("區間不可超過3個月",icon="⚠️")
+                logger.warning(f"[歷史統計查詢-區間統計] 區間不可超過3個月: {start_date} ~ {end_date}")
+                return
+            if query_range:
+                logger.info(f'[歷史統計查詢-區間統計] 開始查詢 {start_date} ~ {end_date} 的統計結果')
+                start_time = datetime.now()
+                range_df = select_sql.search_range_results(start_date,end_date,logger)
+                if range_df is None:
+                    st.error("查無資料，請確認日期是否正確或是否已上傳當日資料",icon="⚠️")
+                    logger.error(f"[歷史統計查詢-區間統計] 查無資料，請確認日期是否正確或是否已上傳當日資料: {start_date} ~ {end_date}")
+                    return
 
-            range_df = range_df.drop(columns=['待測試'])
-            
-            if select_employee:
-                employee = select_employee
-                range_df = range_df[range_df['員工'] == employee]
-                range_df = range_df.drop(columns=['員工']) 
-                df_melt = range_df.melt(id_vars=["回報日期"], var_name="類別", value_name="數量")
-                fig =px.line(df_melt,x='回報日期',y='數量',color='類別',markers=True)
-                fig.update_layout(yaxis=dict(tickformat='d'))
-                st.plotly_chart(fig, use_container_width=True)
-            
-            end_time = datetime.now()
-            logger.info(f"[歷史統計查詢-區間統計] 成功查詢 {start_date} ~ {end_date} 的統計結果，耗時 {end_time - start_time}")
+                range_df = range_df.drop(columns=['待測試'])
+                
+                if select_employee:
+                    employee = select_employee
+                    range_df = range_df[range_df['員工'] == employee]
+                    range_df = range_df.drop(columns=['員工']) 
+                    df_melt = range_df.melt(id_vars=["回報日期"], var_name="類別", value_name="數量")
+                    fig =px.line(df_melt,x='回報日期',y='數量',color='類別',markers=True)
+                    fig.update_layout(yaxis=dict(tickformat='d'))
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                end_time = datetime.now()
+                logger.info(f"[歷史統計查詢-區間統計] 成功查詢 {start_date} ~ {end_date} 的統計結果，耗時 {end_time - start_time}")
 
 if selected == "歷史統計查詢":
     st.subheader('歷史統計查詢')
@@ -272,8 +274,8 @@ if selected == "歷史統計查詢":
 #上傳CSV
 if selected == "上傳CSV":
     st.subheader('上傳CSV')
-    
-    file = st.file_uploader("上傳CSV", ['.csv'])
+
+    file = st.file_uploader("上傳CSV", ['.csv'],help="請上傳CSV檔案，檔案格式請參考說明文件",key='upload_file_uploader')
     
     if file is not None:
         df = pd.read_csv(file)
