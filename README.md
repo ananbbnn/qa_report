@@ -4,7 +4,7 @@
 
 ## 線上體驗
 
-👉 [點我立即使用](https://appreport-zkbhnyutbnzuredqzcbwju.streamlit.app/)
+<a href="https://appreport-zkbhnyutbnzuredqzcbwju.streamlit.app/" target="_blank">👉 點我立即使用</a>
 
 ## 簡介
 
