@@ -278,15 +278,15 @@ if selected == "上傳CSV":
     file = st.file_uploader("上傳CSV", ['.csv'],help="請上傳CSV檔案，檔案格式請參考說明文件",key='upload_file_uploader')
     
     if file is not None:
-        df = pd.read_csv(file)
+        df = pd.read_csv(file,encoding='utf-8')
 
         expected_cols = ['編號', '專案', '回報人', '分配給', '優先權',
                          '嚴重性', '出現頻率', '產品版本', '類別', '回報日期',
                          '作業系統', '作業系統版本', '平台類型', '檢視狀態',
                          '已更新', '摘要', '狀態', '問題分析', '已修正版本']
         df.columns = df.columns.str.strip()   # 去掉前後空白
+        df.columns = df.columns.str.replace('\ufeff', '')  # 移除BOM字元
         df = df.dropna(axis=0, how='all')     # 移除完全空白的列
-
         for ex in expected_cols:
             if ex not in df.columns.tolist():
                 st.error("CSV 檔案格式不正確，請確認欄位名稱",icon="⚠️")
