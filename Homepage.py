@@ -209,10 +209,29 @@ def history_statistics_tab1():
                 )
 
                 st.plotly_chart(fig, use_container_width=True)
-                daily_results = daily_results.set_index('員工')[options]
+                print(daily_results)
+                daily_results = daily_results.rename(columns={
+                    "員工": str(daily_date)
+                })
+                daily_results = daily_results.set_index(str(daily_date))[options]
                 daily_results.loc['合計'] = daily_results.sum(axis=0)
-                st.dataframe(daily_results)
-                st.markdown(f"待測試: {under_test}")
+                daily_results = daily_results.reset_index()
+
+                red_headers = [str(daily_date), "重要未處理"]
+
+                # 產生 header style
+                styles = [
+                    {"selector": f"th.col{i}", "props": "color: red; font-weight: bold;"}
+                    for i, col in enumerate(daily_results.columns)
+                    if col in red_headers
+                ]
+
+                styled = daily_results.style.set_table_styles(styles)
+                styled = styled.hide(axis="index")
+
+                with st.container(border=1,width=700):
+                    st.markdown(styled.to_html(), unsafe_allow_html=True)
+                    st.markdown(f"待測試: {under_test}")
                 end_time = datetime.now()
                 logger.info(f"[歷史統計查詢-單日統計] 成功查詢 {daily_date} 的統計結果，耗時 {end_time - start_time}")
 

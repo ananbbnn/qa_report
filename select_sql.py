@@ -42,7 +42,7 @@ def search_daily_results(date,logger):
         return
     df = pd.DataFrame(result)
     #print(f'result: {result}')
-    df.columns = ['員工','新問題','每日完成','累積未完成','重要未處理','外部未處理','待測試']
+    df.columns = ['員工','新問題','今日完成','累積未完成','重要未處理','外部未處理','待測試']
     
     return df
 
